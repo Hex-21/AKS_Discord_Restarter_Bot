@@ -3,6 +3,7 @@ import datetime
 import discord
 import env
 import json
+import re
 import shutil
 import subprocess
 import PyJLogger
@@ -11,12 +12,7 @@ logger = PyJLogger.get_logger("PyJlogger", 0)
 
 client = discord.Bot(intents=discord.Intents.all(), status=discord.Status.online)
 
-# todo:
-#   create config.Backup.json
-#   replace config.Backup.json with the normal config.json
-#   Fix Chat sanitizer users with space in name
-#   journal read if restart has pip destroy in it.
-__version__ = "2.0.1"
+__version__ = "2.0.3"
 
 whitelist: dict[str, int] = env.whitelist
 
@@ -47,27 +43,27 @@ def server_image(server_name: str) -> discord.File:
 
 
 def sanitize(line: str) -> str:
-    try: # todo bug fix Nutzer mit Space im namen ruinieren den sanitize, but i am lazy and its an unpaid hobby code so it stays that way for a moment
-        logger.debug(f"Before Sanitize: {line}")
-        logger.debug(f"Before Sanitize list: {line.split()}")
-        line_list = line.split()
-        del line_list[5]
-        del line_list[3]
-        del line_list[2]
-        del line_list[-12]
-        del line_list[-11]
-        del line_list[-10]
-        del line_list[-8]
-        del line_list[-6]
-        del line_list[-5]
-        del line_list[-4]
-        del line_list[-2]
-        sanatizedline = " ".join(line_list).replace("message", "\nMessage:").replace("playerBiId", "\n\nID:").replace("playerName", "\nName:")
-        logger.debug(f"After Sanitize: {sanatizedline}")
-        return sanatizedline
+    try:
+        pattern = re.compile(
+            r"\[(?P<time>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]"
+            r".*?message = (?P<message>.*?), playerId = .*?playerName = (?P<name>.+)$")
+        match = pattern.search(line)
+
+        if match:
+            results = {
+                "time": match.group("time"),
+                "name": match.group("name"),
+                "message": match.group("message")}
+        else:
+            results = {
+                "time": "None",
+                "name": "None",
+                "message": "None"}
+
+        return f"{results['time']} | {results['name']}: \n{results['message']}"
     except Exception as e:
         logger.exception(repr(e))
-        return ""
+        return f""
 
 
 async def aks1_log():
