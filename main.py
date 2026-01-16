@@ -4,12 +4,14 @@ import discord
 import env
 import json
 import re
+import os
 import shutil
 import subprocess
 import PyJLogger
 from discord.ext import tasks, commands
 logger = PyJLogger.get_logger("PyJlogger", 0)
 
+asyncio.set_event_loop(asyncio.new_event_loop())
 client = discord.Bot(intents=discord.Intents.all(), status=discord.Status.online)
 
 __version__ = "2.0.3"
@@ -220,9 +222,9 @@ async def json_backup():
                     src=f"{env.aksconfigpath}AKS{x}/config.json",
                     dst=f"{env.aksconfigpath}AKS{x}/Backup/{timenow}.config.json")
                 logger.info(f"Backup NR {x}")
-            await asyncio.sleep(60*60*12) # 12 std
         except Exception as e:
             logger.exception(f"Failed Backup {repr(e)}")
+        await asyncio.sleep(60 * 60 * 12)  # 12 std
 
 @client.event
 async def on_ready():
@@ -353,20 +355,41 @@ def restart_command(server_name: str) -> str or None:
             return None
 
 
+def clear_session_func(server_name: str) -> str:
+    match server_name:
+        case "AKS1":
+            return env.sessionsavepath1
+        case "AKS2":
+            return env.sessionsavepath2
+        case "AKS3":
+            return env.sessionsavepath3
+        case "AKS4":
+            return env.sessionsavepath4
+        case "AKS5":
+            return env.sessionsavepath5
+        case _:
+            return env.sessionsavepath5
+
+
 @commands.cooldown(1, 8, commands.BucketType.default)
 @client.slash_command(name="restart", description="Restart an arma instance")
-async def restart(ctx, server: discord.Option(str, choices=["AKS1", "AKS2", "AKS3", "AKS4", "AKS5"]), comment: str = "No comment given"):
+async def restart(ctx, server: discord.Option(str, choices=["AKS1", "AKS2", "AKS3", "AKS4", "AKS5"]), clear_session: discord.Option(bool, choices=[True, False]), comment: str = "No comment given"):
     await ctx.defer()
     if not whitelisted(user_name=ctx.author.name, user_id=ctx.author.id):
         logger.warn(f"{ctx.author.name} tried to restart({server}) comment: {comment} but is not whitelisted")
         await ctx.respond(f"# U SHALL NOT USE WHAT U CAN'T COMPREHEND PEASANT.\nGet Permission from an Admin")
         return
-
     try:
-        command = restart_command(server)
+        command = restart_command(server_name=server)
+        if clear_session:
+            logger.info(f"Running clear command({command})")
+            clear_session_path = clear_session_func(server)
+            for entry in os.listdir(clear_session_path):
+                if os.path.isdir(f"{clear_session_path}/{entry}"):
+                    shutil.rmtree(f"{clear_session_path}/{entry}")
         if command:
             logger.info(f"Running command({command})")
-            subprocess.run(command.split(), check=True)
+            subprocess.run(command.split(), check=True, timeout=30)
         else:
             raise TypeError(f"Server({server}) restart command not found")
     except Exception as e:
@@ -379,13 +402,13 @@ async def restart(ctx, server: discord.Option(str, choices=["AKS1", "AKS2", "AKS
         file = server_image(server)
         embed = discord.Embed(
             title=f"**✅ {server}**",
-            description=f"{ctx.author.mention} Restarted.\n\n"
+            description=f"{ctx.author.mention} Restarted. \nClear SESSION={str(clear_session)}\n\n"
                         f"Optional comment: \n**```\n{comment}```**",
             color=discord.Color.green()
         )
         try:
             embed.set_image(url="attachment://ServerIcon.png")
-            embed.set_thumbnail(url=f"{ctx.author.display_avatar.url}")
+            embed.set_footer(text=f"Requested by {ctx.author.name}", icon_url=ctx.author.display_avatar.url)
         except Exception as e:
             logger.exception(f"couldn't set embed image/thumbnail, skipping image E:{repr(e)}")
 
@@ -396,7 +419,8 @@ async def restart(ctx, server: discord.Option(str, choices=["AKS1", "AKS2", "AKS
 
 @restart.error
 async def restart_error(ctx, error):
-    await ctx.respond(f"{ctx.author.mention} Triggered Restart_Error:({error})")
+    logger.error(f"{ctx.author.name} Triggered Restart_Error:({error})")
+    await ctx.respond(f"{ctx.author.name} Triggered Restart_Error:({error})")
 
 
 client.run(str(env.TOKEN))
