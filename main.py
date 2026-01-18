@@ -249,9 +249,6 @@ async def on_message(message: discord.Message):
 @client.slash_command(name="mod_list_csv", description="Get the current mods of Server X")
 async def mod_list_csv(ctx, server: discord.Option(str, choices=["AKS1", "AKS2", "AKS3", "AKS4", "AKS5"])):
     await ctx.defer()
-    if not whitelisted(user_name=ctx.author.name, user_id=ctx.author.id):
-        await ctx.respond(f"# U SHALL NOT USE WHAT U CAN'T COMPREHEND PEASANT.\nGet Permission from an Admin")
-        return
     timenow = datetime.datetime.strftime(datetime.datetime.now(), "%Y-%m-%d_%H-%M-%S")
     config_file_path = f"{env.aksconfigpath}{server}/config.json"
     with open(f"{config_file_path}", "r", encoding="utf-8") as f:
