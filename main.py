@@ -242,7 +242,13 @@ async def on_ready():
 @client.event
 async def on_message(message: discord.Message):
     if message.author != client.user:
-        logger.debug(f"Message In Channel({message.channel}) From({message.author.name}:{message.author.id}) MessageContent({message.content})")
+        logger.info(f"Message In Channel({message.channel}) From({message.author.name}:{message.author.id}) MessageContent({message.content})")
+
+
+@client.slash_command(name="ping", description="Heartbeat")
+async def ping(ctx: discord.ApplicationContext):
+    latency = round(client.latency*1000)
+    await ctx.respond(f"Pong! `{latency}ms`")
 
 
 @commands.cooldown(1, 5, commands.BucketType.default)
