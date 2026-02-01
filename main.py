@@ -13,8 +13,9 @@ logger = PyJLogger.get_logger("PyJlogger", 0)
 
 asyncio.set_event_loop(asyncio.new_event_loop())
 client = discord.Bot(intents=discord.Intents.all(), status=discord.Status.online)
+files = env.json_config_file_list
 
-__version__ = "2.0.3"
+__version__ = "2.0.6"
 
 whitelist: dict[str, int] = env.whitelist
 
@@ -213,6 +214,64 @@ async def aks5_log():
         await asyncio.sleep(60 * 60 * 24)
 
 
+def get_old_mods(file: str):
+    try:
+        with open(f"{file}", "r", encoding="utf-8") as f:
+            data = json.load(f)
+            mods = data["game"]["mods"]
+            return mods
+    except Exception as e:
+        return None
+
+def get_current_mods(file: str):
+    try:
+        with open(f"{file}", "r", encoding="utf-8") as f:
+            data = json.load(f)
+            mods = data["game"]["mods"]
+            return mods
+    except Exception as e:
+        return None
+
+
+async def compare_mods():
+    while True:
+        try:
+            for file in files:
+                logger.debug(f"Comparing mods of{file}")
+                old_mods = get_old_mods(f"{file}.bak")
+                new_mods = get_current_mods(f"{file}")
+                if not old_mods:
+                    shutil.copyfile(
+                        src=file,
+                        dst=f"{file}.bak"
+                    )
+                    continue
+
+                if old_mods != new_mods:
+                    for mod in new_mods:
+                        if mod['modId'] not in str(old_mods):
+                            await client.get_channel(env.commit_channel).send(f"[{mod['modId']}](https://reforger.armaplatform.com/workshop/{mod['modId']}) added to {file}")
+                            await asyncio.sleep(10)
+
+                    for mod in old_mods:
+                        if mod['modId'] not in str(new_mods):
+                            await client.get_channel(env.commit_channel).send(f"[{mod['modId']}](https://reforger.armaplatform.com/workshop/{mod['modId']}) removed from {file}")
+                            await asyncio.sleep(10)
+                else:
+                    continue
+                shutil.copyfile(
+                    src=file,
+                    dst=f"{file}.bak"
+                )
+            await asyncio.sleep(10)
+
+        except Exception as e:
+            logger.exception(repr(e))
+
+        finally:
+            await asyncio.sleep(30)
+
+
 async def json_backup():
     while True:
         try:
@@ -236,6 +295,7 @@ async def on_ready():
     asyncio.create_task(aks4_log())
     asyncio.create_task(aks5_log())
     asyncio.create_task(json_backup())
+    asyncio.create_task(compare_mods())
     logger.info(f"{client.user.name} Ready")
 
 
