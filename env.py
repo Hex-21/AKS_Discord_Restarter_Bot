@@ -29,3 +29,7 @@ sessionsavepath5 = ""
 forwardchattodiscordchannelchatid: int = 0
 
 aksconfigpath = ""
+
+json_config_file_list = []
+
+commit_channel: int = 0
