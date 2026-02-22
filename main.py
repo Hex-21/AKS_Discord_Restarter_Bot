@@ -333,7 +333,7 @@ async def mod_list_csv_error(ctx, error):
     await ctx.respond(f"{ctx.author.mention} Triggered Restart_Error:({error})")
 
 
-@commands.cooldown(1, 20, commands.BucketType.default)
+@commands.cooldown(1, 5, commands.BucketType.default)
 @client.slash_command(name="mod_remove", description="Remove mod X from the Server")
 async def remove_mod(ctx, server: discord.Option(str, choices=["AKS1", "AKS2", "AKS3", "AKS4", "AKS5"]), mod_id: str):
     await ctx.defer()
@@ -371,7 +371,7 @@ async def remove_mod_error(ctx, error):
     await ctx.respond(f"{ctx.author.mention} Triggered Restart_Error:({error})")
 
 
-@commands.cooldown(1, 20, commands.BucketType.default)
+@commands.cooldown(1, 5, commands.BucketType.default)
 @client.slash_command(name="mod_add", description="Add mod X for the Server X")
 async def add_mod(ctx, server: discord.Option(str, choices=["AKS1", "AKS2", "AKS3", "AKS4", "AKS5"]), mod_id: str, mod_name: str):
     await ctx.defer()
