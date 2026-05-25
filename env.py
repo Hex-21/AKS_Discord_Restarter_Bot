@@ -33,3 +33,10 @@ aksconfigpath = ""
 json_config_file_list = []
 
 commit_channel: int = 0
+
+service_files = ["service1.service", "service2.service"]
+service_health_channel = 0
+status_file_with_message_id = "./tmp/message_id.txt"
+
+server_admin_status_file = "/pathto/ServerAdminTools_Stats.json"
+server_admin_status_file_2 = "/pathto/ServerAdminTools_Stats.json"
