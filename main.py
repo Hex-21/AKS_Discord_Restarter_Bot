@@ -214,6 +214,111 @@ async def aks5_log():
         await asyncio.sleep(60 * 60 * 24)
 
 
+async def serverstatus():
+    global service_name, service_sub_state, service_restart_count, service_start_time, service_cpu_usage, service_memory_usage, \
+    service_name2, service_sub_state2, service_restart_count2, service_start_time2, service_cpu_usage2, service_memory_usage2, \
+    players_from_serveradmins_config, players_from_serveradmins_config_2
+    status_channel_id = env.service_health_channel
+    status_file = env.status_file_with_message_id
+    status_message_id = None
+
+    if os.path.exists(status_file):
+        with open(status_file, "r") as f:
+            content = f.read().strip()
+            if content.isdigit():
+                status_message_id = int(content)
+
+    st_channel = client.get_channel(status_channel_id)
+
+    if not status_message_id:
+        message = await st_channel.send(embed=discord.Embed(title="Initializing ..."))
+        status_message_id = message.id
+
+        with open(status_file, "w") as f:
+            f.write(str(status_message_id))
+
+    while True:
+        for loop_num, service in enumerate(env.service_files, start=1):
+            props = {}
+            try:
+                result = subprocess.run(
+                    ["systemctl", "show", service],
+                    capture_output=True, text=True, check=True
+                )
+
+                for line in result.stdout.splitlines():
+                    if "=" in line:
+                        key, val = line.split(sep="=", maxsplit=1)
+                        props[key] = val
+            except Exception as e:
+                logger.exception(f"Error getting systemd show: {repr(e)}")
+            if loop_num == 1:
+                service_sub_state = props.get('SubState', '')
+                service_restart_count = props.get('NRestarts', '')
+                service_start_time = props.get('ActiveEnterTimestamp', '')
+                service_cpu_usage = props.get('CPUUsageNSec', '')
+                service_memory_usage = props.get('MemoryCurrent', '')
+                players_from_serveradmins_config = ""
+
+                if int(service_restart_count) >= 10:
+                    service_name = f"🔴 PVE 1"
+                elif int(service_restart_count) >= 3:
+                    service_name = f"🟡 PVE 1"
+                else:
+                    service_name = f"🟢 PVE 1"
+
+                with open(f"{env.server_admin_status_file}", "r") as f:
+                    content = json.load(f)["connected_players"].values()
+                    for player_nr, name in enumerate(content):
+                        players_from_serveradmins_config += f"{player_nr}. `{name}`\n"
+
+            elif loop_num == 2:
+                service_sub_state2 = props.get('SubState', '')
+                service_restart_count2 = props.get('NRestarts', '')
+                service_start_time2 = props.get('ActiveEnterTimestamp', '')
+                service_cpu_usage2 = props.get('CPUUsageNSec', '')
+                service_memory_usage2 = props.get('MemoryCurrent', '')
+
+                if int(service_restart_count2) >= 10:
+                    service_name2 = f"🔴 PVE 2"
+                elif int(service_restart_count) >= 3:
+                    service_name2 = f"🟡 PVE 2"
+                else:
+                    service_name2 = f"🟢 PVE 2"
+
+                players_from_serveradmins_config_2 = ""
+                with open(f"{env.server_admin_status_file_2}", "r") as f:
+                    content2 = json.load(f)["connected_players"].values()
+                    for player_nr2, name2 in enumerate(content2):
+                        players_from_serveradmins_config_2 += f"{player_nr2}. `{name2}`\n"
+
+        try:
+            current_time = int(datetime.datetime.now().timestamp())
+            test_embed = discord.Embed(
+                title="ServerStatus",
+                description=f"# {service_name} {service_sub_state}\n"
+                            f"{service_start_time} 🔄{service_restart_count}\n"
+                            f"{players_from_serveradmins_config}\n"
+                            f"# {service_name2} {service_sub_state2}\n"
+                            f"{service_start_time} 🔄{service_restart_count}\n"
+                            f"{players_from_serveradmins_config_2}\n",
+                color=discord.Color.magenta()
+            )
+
+            message_to_edit = await st_channel.fetch_message(status_message_id)
+            await message_to_edit.edit(
+                content=f"**Updated:** <t:{current_time}:T> (<t:{current_time}:R>)",
+                embed=test_embed
+            )
+
+        except discord.NotFound:
+            logger.exception("The status message was deleted from Discord! You'll need to reset the text file.")
+            continue
+        except Exception as e:
+            logger.error(f"Error updating message: {repr(e)}")
+        await asyncio.sleep(10)
+
+
 def get_old_mods(file: str):
     try:
         with open(f"{file}", "r", encoding="utf-8") as f:
@@ -294,6 +399,7 @@ async def on_ready():
     asyncio.create_task(aks3_log())
     asyncio.create_task(aks4_log())
     asyncio.create_task(aks5_log())
+    asyncio.create_task(serverstatus())
     asyncio.create_task(json_backup())
     asyncio.create_task(compare_mods())
     logger.info(f"{client.user.name} Ready")
